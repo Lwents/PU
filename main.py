@@ -1,5 +1,5 @@
 """Standard enterprise application entrypoint for PUBG Control."""
-import os
+import argparse
 from pathlib import Path
 import sys
 import tkinter as tk
@@ -16,12 +16,24 @@ from pubg_control.utils.logger import setup_logger
 
 def main() -> None:
     """Initialize logging, construct the main window, and start event loop."""
+    parser = argparse.ArgumentParser(description="PUBG Control Suite")
+    parser.add_argument(
+        "--minimized",
+        "-m",
+        action="store_true",
+        help="Launch application minimized to taskbar (chạy ép xuống taskbar)",
+    )
+    args, _ = parser.parse_known_args()
+
     logger = setup_logger("pubg_control")
-    logger.info("Starting PUBG Control Desktop Suite...")
+    logger.info("Starting PUBG Control Desktop Suite (minimized=%s)...", args.minimized)
 
     root = tk.Tk()
     app = PUBGControlApp(root)
     root.protocol("WM_DELETE_WINDOW", app.on_closing)
+
+    if args.minimized:
+        root.iconify()
 
     try:
         root.mainloop()

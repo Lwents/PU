@@ -17,7 +17,7 @@ if not exist ".venv\Scripts\python.exe" (
 )
 
 echo [INFO] Dang khoi dong PUBG Control...
-".venv\Scripts\python.exe" main.py
+".venv\Scripts\python.exe" main.py %*
 if errorlevel 1 (
     echo.
     echo [ERROR] Ung dung da dung lai voi loi.
