@@ -1,4 +1,4 @@
-"""Automation page view: Auto-buy, auto-gift, gameplay macros."""
+"""Automation page view: Auto-buy, auto-gift, gameplay macros, and OpenCV auto-matchmaking."""
 import tkinter as tk
 from tkinter import ttk
 from typing import TYPE_CHECKING, Dict
@@ -28,13 +28,46 @@ class AutomationView(tk.Frame):
     def _build_ui(self) -> None:
         create_label(self, "Tự động hóa", 20, bold=True, bg=BG).pack(anchor="w", pady=(0, 6))
         create_label(
-            self, "Các chức năng hiện có • dùng cửa sổ LDPlayer đã kết nối", 10, MUTED, bg=BG
+            self, "Các chức năng tự động hóa • Tích hợp Computer Vision OpenCV", 10, MUTED, bg=BG
         ).pack(anchor="w", pady=(0, 16))
+
+        # OpenCV Matchmaking Card
+        lobby_card = create_card(self)
+        lobby_card.pack(fill="x", pady=(0, 12))
+        create_label(
+            lobby_card, "Tự động vào trận Xếp hạng (OpenCV Vision)", 12, GOLD, bold=True
+        ).pack(anchor="w")
+        create_label(
+            lobby_card,
+            "Tự động phát hiện và đóng các tab quảng cáo/sự kiện khi mở PUBG,\n"
+            "chuyển chế độ sang Xếp hạng (Ranked) và bấm BẮT ĐẦU ghép trận.",
+            10,
+            MUTED,
+            justify="left",
+        ).pack(anchor="w", pady=(4, 10))
+
+        lobby_btn_row = tk.Frame(lobby_card, bg=PANEL)
+        lobby_btn_row.pack(fill="x")
+        self.auto_match_btn = create_button(
+            lobby_btn_row,
+            "⚡ TỰ ĐỘNG VÀO TRẬN XẾP HẠNG",
+            self.app.start_auto_match_flow,
+            primary=True,
+        )
+        self.auto_match_btn.pack(side="left", fill="x", expand=True, padx=(0, 8))
+
+        create_button(
+            lobby_btn_row, "✖ Tắt tab popup", self.app.dismiss_popups_only
+        ).pack(side="left", padx=(0, 8))
+
+        create_button(
+            lobby_btn_row, "🎯 Chọn Xếp hạng", self.app.select_ranked_only
+        ).pack(side="left")
 
         # Notice card
         notice = create_card(self)
         notice.pack(fill="x", pady=(0, 12))
-        create_label(notice, "Cần thiết lập tọa độ trước khi sử dụng", 11, GOLD, bold=True).pack(
+        create_label(notice, "Cần thiết lập tọa độ trước khi sử dụng các chức năng dưới", 11, GOLD, bold=True).pack(
             anchor="w"
         )
         create_label(

@@ -10,6 +10,7 @@ from tkinter import filedialog, messagebox
 from typing import List, Optional
 
 from pubg_control.automation.bot import AutomationService
+from pubg_control.automation.lobby import LobbyAutomationService
 from pubg_control.config.constants import (
     BG,
     DEFAULT_WINDOW_HEIGHT,
@@ -74,6 +75,11 @@ class PUBGControlApp:
 
         # Initialize Services
         self.automation = AutomationService(
+            window_focuser=self.focus_game_window,
+            log_callback=self.log_message,
+        )
+        self.lobby_automation = LobbyAutomationService(
+            adb_executor=self._run_adb_command,
             window_focuser=self.focus_game_window,
             log_callback=self.log_message,
         )
@@ -445,12 +451,60 @@ class PUBGControlApp:
             self.automation.stop()
             self.automation_view.set_running_state(False)
 
+    def _run_adb_command(self, cmd: str) -> str:
+        instance = self.linked_instance or self.selected_instance()
+        if not instance:
+            raise RuntimeError("Chưa chọn hoặc chưa kết nối máy ảo LDPlayer.")
+        client = LDPlayer(self.console_path.get().strip())
+        return client.adb(instance.index, cmd)
+
+    def start_auto_match_flow(self) -> None:
+        """Trigger OpenCV automated lobby popup closing and ranked matchmaking."""
+        if not self.focus_game_window():
+            messagebox.showerror(
+                "Lỗi", "Chưa kết nối LDPlayer. Hãy mở từ trang Tổng quan."
+            )
+            return
+
+        self.log_message("Bắt đầu tự động vào trận Xếp hạng (OpenCV)...")
+        threading.Thread(
+            target=lambda: self.lobby_automation.auto_enter_match_flow(
+                on_finish=lambda ok: self.log_message("Hoàn thành quy trình tự động vào trận." if ok else "Quy trình gặp lỗi.")
+            ),
+            daemon=True,
+        ).start()
+
+    def dismiss_popups_only(self) -> None:
+        """Trigger popup dismissal only."""
+        if not self.focus_game_window():
+            messagebox.showerror(
+                "Lỗi", "Chưa kết nối LDPlayer. Hãy mở từ trang Tổng quan."
+            )
+            return
+        threading.Thread(
+            target=lambda: self.lobby_automation.dismiss_popups(max_attempts=6),
+            daemon=True,
+        ).start()
+
+    def select_ranked_only(self) -> None:
+        """Trigger Ranked mode selection only."""
+        if not self.focus_game_window():
+            messagebox.showerror(
+                "Lỗi", "Chưa kết nối LDPlayer. Hãy mở từ trang Tổng quan."
+            )
+            return
+        threading.Thread(
+            target=lambda: self.lobby_automation.select_ranked_mode(),
+            daemon=True,
+        ).start()
+
     def on_closing(self) -> None:
         """Gracefully terminate background threads on window exit."""
         self.running_automation = False
         self.closed = True
         self.launch_cancel.set()
         self.automation.stop()
+        self.lobby_automation.cancel()
         try:
             self.root.after_cancel(self.poll_id)
         except Exception:
