@@ -31,7 +31,9 @@ class AutomationView(tk.Frame):
             self, "Các chức năng tự động hóa • Tích hợp Computer Vision OpenCV", 10, MUTED, bg=BG
         ).pack(anchor="w", pady=(0, 16))
 
-        # OpenCV Matchmaking Card
+        # -------------------------------------------------------------
+        # 1. OpenCV Matchmaking Card
+        # -------------------------------------------------------------
         lobby_card = create_card(self)
         lobby_card.pack(fill="x", pady=(0, 12))
         create_label(
@@ -64,22 +66,61 @@ class AutomationView(tk.Frame):
             lobby_btn_row, "🎯 Chọn Xếp hạng", self.app.select_ranked_only
         ).pack(side="left")
 
-        # Notice card
-        notice = create_card(self)
-        notice.pack(fill="x", pady=(0, 12))
-        create_label(notice, "Cần thiết lập tọa độ trước khi sử dụng các chức năng dưới", 11, GOLD, bold=True).pack(
-            anchor="w"
-        )
+        # -------------------------------------------------------------
+        # 2. Intelligent Auto Play Bot Card (Complete Engine)
+        # -------------------------------------------------------------
+        play_card = create_card(self)
+        play_card.pack(fill="x", pady=(0, 12))
         create_label(
-            notice,
-            "Tọa độ mua / tặng hiện là mẫu trong hệ thống. Tên bạn bè chưa được dùng để chọn\n"
-            "người nhận; tự động chơi hiện chỉ gửi phím ngẫu nhiên, chưa nhận diện trận đấu.",
+            play_card, "Bot Tự động chơi thông minh (Intelligent Auto Play)", 12, GOLD, bold=True
+        ).pack(anchor="w")
+        create_label(
+            play_card,
+            "Động cơ tự động sinh tồn: Nhận diện sảnh, di chuyển chiến thuật, tự nhặt đồ,\n"
+            "tự ngắm bắn mục tiêu, tự động dùng vật phẩm hồi máu khi máu thấp qua OpenCV,\n"
+            "và tự động bấm Tiếp tục / Về sảnh tìm trận mới khi kết thúc trận.",
             10,
             MUTED,
             justify="left",
-        ).pack(anchor="w", pady=(6, 0))
+        ).pack(anchor="w", pady=(4, 10))
 
-        # Auto-buy card
+        play_opt_row = tk.Frame(play_card, bg=PANEL)
+        play_opt_row.pack(fill="x", pady=(0, 8))
+        create_checkbutton(
+            play_opt_row, "Kích hoạt Tự động chơi", self.app.auto_play_enabled
+        ).pack(side="left")
+
+        style_frame = tk.Frame(play_opt_row, bg=PANEL)
+        style_frame.pack(side="right")
+        create_label(style_frame, "Phong cách chiến thuật:", 9, MUTED).pack(side="left", padx=(0, 6))
+        self.play_style_combo = ttk.Combobox(
+            style_frame,
+            textvariable=self.app.play_style,
+            values=PLAY_STYLES,
+            state="readonly",
+            width=14,
+        )
+        self.play_style_combo.pack(side="left")
+
+        # Requeue option
+        create_checkbutton(
+            play_card,
+            "Tự động tìm trận mới khi kết thúc / tử trận (Auto Requeue / Cày rank AFK)",
+            self.app.auto_requeue_enabled,
+        ).pack(anchor="w", pady=(0, 8))
+
+        # Real-time Telemetry Display
+        self.telemetry_label = create_label(
+            play_card,
+            "Trạng thái Bot: Đang chờ • Số trận: 0 • Hồi máu: 0 • Giao tranh: 0",
+            9,
+            GOLD,
+        )
+        self.telemetry_label.pack(anchor="w", pady=(4, 0))
+
+        # -------------------------------------------------------------
+        # 3. Manual Purchases & Gifting Cards
+        # -------------------------------------------------------------
         buy_card = create_card(self)
         buy_card.pack(fill="x", pady=(0, 10))
         create_checkbutton(
@@ -97,7 +138,7 @@ class AutomationView(tk.Frame):
 
         # Auto-gift card
         gift_card = create_card(self)
-        gift_card.pack(fill="x", pady=(0, 10))
+        gift_card.pack(fill="x", pady=(0, 14))
         create_checkbutton(
             gift_card, "Tự động tặng quà", self.app.auto_gift_enabled
         ).pack(anchor="w")
@@ -109,24 +150,9 @@ class AutomationView(tk.Frame):
         self.friend_name_entry.pack(side="left", fill="x", expand=True, ipady=10)
         create_button(gift_row, "Tặng ngay", self.app.manual_gift).pack(side="right", padx=(10, 0))
 
-        # Auto-play card
-        play_card = create_card(self)
-        play_card.pack(fill="x", pady=(0, 16))
-        create_checkbutton(
-            play_card, "Tự động chơi", self.app.auto_play_enabled
-        ).pack(side="left")
-
-        ttk.Combobox(
-            play_card,
-            textvariable=self.app.play_style,
-            values=PLAY_STYLES,
-            state="readonly",
-            width=18,
-        ).pack(side="right")
-
-        # Action toggle button
+        # Main Action toggle button
         self.start_button = create_button(
-            self, "BẮT ĐẦU", self.app.toggle_start, primary=True
+            self, "BẮT ĐẦU TỰ ĐỘNG CHƠI", self.app.toggle_start, primary=True
         )
         self.start_button.pack(fill="x")
 
@@ -134,11 +160,26 @@ class AutomationView(tk.Frame):
         self.status_bar = create_label(self, "Trạng thái: Sẵn sàng", 10, MUTED, bg=BG)
         self.status_bar.pack(anchor="w", pady=10)
 
+    def update_telemetry(self, state: str, matches: int, heals: int, shots: int) -> None:
+        """Update live telemetry counters on the bot card."""
+        state_names = {
+            "IDLE": "Đang chờ",
+            "STARTING": "Đang khởi động",
+            "LOBBY": "Ở Sảnh chờ",
+            "IN_GAME": "Đang trong trận đấu sinh tồn",
+            "MATCH_RESULT": "Kết thúc trận / Tổng kết",
+            "STOPPED": "Đã dừng",
+        }
+        name = state_names.get(state, state)
+        self.telemetry_label.config(
+            text=f"Trạng thái Bot: {name} • Trận: {matches} • Hồi máu: {heals} • Lượt bắn: {shots}"
+        )
+
     def set_running_state(self, running: bool) -> None:
         """Update button styles and status when automation starts or stops."""
         if running:
-            self.start_button.config(text="DỪNG", bg="#f44336", activebackground="#e53935")
-            self.status_bar.config(text="Trạng thái: Đang chạy")
+            self.start_button.config(text="DỪNG TỰ ĐỘNG CHƠI", bg="#f44336", activebackground="#e53935")
+            self.status_bar.config(text="Trạng thái: Đang chạy bot thông minh")
         else:
-            self.start_button.config(text="BẮT ĐẦU", bg=GOLD, activebackground="#ffcf74")
+            self.start_button.config(text="BẮT ĐẦU TỰ ĐỘNG CHƠI", bg=GOLD, activebackground="#ffcf74")
             self.status_bar.config(text="Trạng thái: Đã dừng")

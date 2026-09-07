@@ -177,3 +177,98 @@ class VisionEngine:
             clicks.append((x + w // 2, y + h // 2))
 
         return clicks
+
+    def detect_health_percentage(self, scene: np.ndarray) -> float:
+        """
+        Analyze the player's health bar (typically bottom-center area).
+        Returns estimated health ratio between 0.0 (dead/empty) and 1.0 (full health).
+        """
+        if scene is None:
+            return 1.0
+
+        height, width = scene.shape[:2]
+        # Health bar ROI in PUBG Mobile (bottom center horizontal bar)
+        rx1, rx2 = int(width * 0.38), int(width * 0.62)
+        ry1, ry2 = int(height * 0.925), int(height * 0.955)
+
+        bar_roi = scene[ry1:ry2, rx1:rx2]
+        if bar_roi.size == 0:
+            return 1.0
+
+        hsv = cv2.cvtColor(bar_roi, cv2.COLOR_BGR2HSV)
+        # White/bright bar pixels represent remaining health
+        lower_white = np.array([0, 0, 175])
+        upper_white = np.array([180, 60, 255])
+        mask = cv2.inRange(hsv, lower_white, upper_white)
+
+        # Count active columns across the bar width
+        column_hits = np.any(mask > 0, axis=0)
+        total_cols = len(column_hits)
+        if total_cols == 0:
+            return 1.0
+
+        health_ratio = float(np.sum(column_hits)) / float(total_cols)
+        logger.debug("Estimated player health: %.1f%%", health_ratio * 100)
+        return max(0.0, min(1.0, health_ratio))
+
+    def detect_match_end_buttons(self, scene: np.ndarray) -> Optional[Tuple[int, int]]:
+        """
+        Detect 'CONTINUE' / 'TIẾP TỤC' or 'RETURN TO LOBBY' buttons on post-match screen.
+        Returns coordinate (x, y) to tap, or None.
+        """
+        if scene is None:
+            return None
+
+        height, width = scene.shape[:2]
+
+        # 1. Search for bottom-right Continue button (bright button in 75%-95% x, 85%-96% y)
+        roi_y1, roi_y2 = int(height * 0.82), int(height * 0.97)
+        roi_x1, roi_x2 = int(width * 0.70), int(width * 0.96)
+        roi = scene[roi_y1:roi_y2, roi_x1:roi_x2]
+
+        gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+        thresh = cv2.threshold(gray, 180, 255, cv2.THRESH_BINARY)[1]
+        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        for cnt in contours:
+            area = cv2.contourArea(cnt)
+            if area > (width * height) * 0.003:
+                x, y, w, h = cv2.boundingRect(cnt)
+                if 2.0 <= float(w) / float(h) <= 6.0:
+                    btn_cx = roi_x1 + x + w // 2
+                    btn_cy = roi_y1 + y + h // 2
+                    logger.info("Found Match End button at (%d, %d)", btn_cx, btn_cy)
+                    return (btn_cx, btn_cy)
+
+        # 2. Canonical bottom-right fallback for post-match screens
+        return (int(width * 0.88), int(height * 0.92))
+
+    def detect_game_state(self, scene: np.ndarray) -> str:
+        """
+        Classify current game screen state:
+        'LOBBY', 'MATCH_RESULT', 'IN_GAME', or 'UNKNOWN'.
+        """
+        if scene is None:
+            return "UNKNOWN"
+
+        # Check for lobby Start button
+        if self.detect_yellow_start_button(scene) is not None:
+            return "LOBBY"
+
+        height, width = scene.shape[:2]
+
+        # Check for match result / victory / defeat banners
+        # Usually contains large text in upper-middle or bottom-right continue button
+        hsv = cv2.cvtColor(scene, cv2.COLOR_BGR2HSV)
+        top_roi = hsv[0 : int(height * 0.35), int(width * 0.25) : int(width * 0.75)]
+        # Gold/yellow banner in top region indicates Winner Winner Chicken Dinner or Defeat
+        gold_mask = cv2.inRange(top_roi, np.array([15, 120, 120]), np.array([35, 255, 255]))
+        if np.sum(gold_mask > 0) > (width * height) * 0.015:
+            return "MATCH_RESULT"
+
+        # Check for in-game health bar
+        health = self.detect_health_percentage(scene)
+        if 0.05 <= health <= 1.0:
+            return "IN_GAME"
+
+        return "UNKNOWN"

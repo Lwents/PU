@@ -70,6 +70,7 @@ class PUBGControlApp:
         self.auto_buy_enabled = tk.BooleanVar(value=False)
         self.auto_gift_enabled = tk.BooleanVar(value=False)
         self.auto_play_enabled = tk.BooleanVar(value=False)
+        self.auto_requeue_enabled = tk.BooleanVar(value=True)
         self.friend_name = tk.StringVar(value="")
         self.play_style = tk.StringVar(value="aggressive")
 
@@ -77,6 +78,7 @@ class PUBGControlApp:
         self.automation = AutomationService(
             window_focuser=self.focus_game_window,
             log_callback=self.log_message,
+            adb_executor=self._run_adb_command,
         )
         self.lobby_automation = LobbyAutomationService(
             adb_executor=self._run_adb_command,
@@ -91,6 +93,7 @@ class PUBGControlApp:
 
         # Start Polling and Initial Discovery
         self.poll_id = self.root.after(100, self._poll)
+        self.telemetry_poll_id = self.root.after(1000, self._poll_telemetry)
         self.root.after(200, self.refresh_instances)
 
     def _setup_window(self) -> None:
@@ -445,7 +448,10 @@ class PUBGControlApp:
                     ).start()
 
             if self.auto_play_enabled.get():
-                self.automation.start_autoplay(self.play_style.get())
+                self.automation.start_autoplay(
+                    play_style=self.play_style.get(),
+                    auto_requeue=self.auto_requeue_enabled.get(),
+                )
         else:
             self.running_automation = False
             self.automation.stop()
@@ -498,6 +504,20 @@ class PUBGControlApp:
             daemon=True,
         ).start()
 
+    def _poll_telemetry(self) -> None:
+        """Periodic UI update for live bot metrics and current state."""
+        if not self.closed and hasattr(self, "automation_view"):
+            try:
+                self.automation_view.update_telemetry(
+                    self.automation.current_state,
+                    self.automation.matches_played,
+                    self.automation.heals_used,
+                    self.automation.shots_fired,
+                )
+            except Exception:
+                pass
+            self.telemetry_poll_id = self.root.after(1000, self._poll_telemetry)
+
     def on_closing(self) -> None:
         """Gracefully terminate background threads on window exit."""
         self.running_automation = False
@@ -507,6 +527,7 @@ class PUBGControlApp:
         self.lobby_automation.cancel()
         try:
             self.root.after_cancel(self.poll_id)
+            self.root.after_cancel(self.telemetry_poll_id)
         except Exception:
             pass
         self.root.destroy()
