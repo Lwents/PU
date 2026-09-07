@@ -1,35 +1,91 @@
-# PUBG Control
+# PUBG Control — Enterprise Automation Suite
 
-Giao diện Python/Tkinter để mở PUBG Mobile trên LDPlayer.
+Bộ công cụ quản lý và tự động hóa PUBG Mobile trên trình giả lập LDPlayer, được thiết kế theo tiêu chuẩn phần mềm doanh nghiệp (Clean Architecture, Modular Python, Thread-safe UI & Concurrency).
 
-## Chạy
+---
 
-Nhấp đúp `run.bat`, hoặc chạy `.\.venv\Scripts\python.exe pu.py`.
+## 🏛️ Cấu trúc thư mục chuẩn Doanh nghiệp
 
-Cài trên máy khác:
-
-```powershell
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\run.bat
+```
+PU/
+├── src/
+│   └── pubg_control/               # Gói mã nguồn chính (Source Package)
+│       ├── config/                 # Quản lý cấu hình, theme và hằng số toàn cục
+│       │   ├── constants.py        # Bảng màu, tọa độ mẫu, danh sách package game
+│       │   └── settings.py         # Quản lý đọc/ghi cấu hình settings.json
+│       ├── core/                   # Tầng Core domain & LDPlayer Driver
+│       │   ├── models.py           # Dataclass Instance đại diện máy ảo
+│       │   ├── exceptions.py       # Hệ thống biệt lệ tùy chỉnh
+│       │   └── ldplayer.py         # LDPlayer CLI Driver & Auto-discovery
+│       ├── automation/             # Động cơ tự động hóa game độc lập UI
+│       │   ├── coordinates.py      # Profile quản lý tọa độ thao tác
+│       │   └── bot.py              # Dịch vụ tự động mua đồ, tặng quà, auto-play
+│       ├── ui/                     # Tầng giao diện người dùng (Presentation)
+│       │   ├── theme.py            # Dark mode palette & Widget factories
+│       │   ├── app.py              # Application controller & Window coordinator
+│       │   └── views/              # Các trang giao diện độc lập
+│       │       ├── overview.py     # Trang Tổng quan (Dò giả lập & mở game)
+│       │       ├── automation.py   # Trang Tự động hóa
+│       │       └── logs.py         # Trang Nhật ký hoạt động trực tiếp
+│       └── utils/                  # Tiện ích bổ trợ
+│           ├── logger.py           # Logger xoay vòng ghi file và đẩy lên UI
+│           └── windows.py          # Quản lý cửa sổ Win32 an toàn
+├── tests/                          # Bộ kiểm thử tự động (Unit & Integration Tests)
+│   ├── test_ldplayer.py            # Kiểm thử LDPlayer Driver & ADB
+│   └── test_config.py              # Kiểm thử đọc/ghi cấu hình
+├── configs/                        # Tệp cấu hình mẫu
+│   └── settings.example.json       # Cấu hình mặc định mẫu
+├── docs/                           # Tài liệu kỹ thuật
+│   └── ARCHITECTURE.md             # Tài liệu kiến trúc phân tầng chi tiết
+├── pyproject.toml                  # Cấu hình đóng gói & metadata chuẩn PEP 621
+├── requirements.txt                # Thư viện runtime bắt buộc
+├── requirements-dev.txt            # Thư viện cho kiểm thử và phát triển
+├── main.py                         # Điểm khởi chạy chuẩn
+├── pu.py                           # Điểm khởi chạy tương thích ngược
+├── run.bat                         # Kịch bản khởi động thông minh (tự tạo venv)
+└── .gitignore                      # Bộ quy tắc bỏ qua file chuẩn cho Python/IDE
 ```
 
-## Mở game
+---
 
-Khi mở tool hoặc bấm **Làm mới**, chương trình tự tìm LDPlayer từ đường dẫn đã lưu, PATH, thông tin cài đặt Windows, tiến trình LDPlayer đang chạy và các thư mục phổ biến. Đường dẫn cũ không còn tồn tại sẽ được dò lại. Với bản portable ở thư mục lạ, hãy mở LDPlayer trước hoặc chọn tệp console một lần.
+## 🚀 Khởi chạy ứng dụng
 
-Máy ảo được chọn đang chạy sẽ được tự kiểm tra ADB và hiển thị độ phân giải. Tool dùng `ldconsole adb --index` để LDPlayer tự xác định thiết bị, không cố định cổng 5555 và không chọn nhầm thiết bị từ danh sách ADB. Mỗi máy vẫn cần bật **Open local connection** trong LDPlayer; không cần cài ADB riêng hoặc gõ lệnh connect.
+### Cách 1: Chạy nhanh bằng script (Khuyên dùng trên Windows)
+Nhấp đúp vào **`run.bat`**. Script sẽ tự động kiểm tra môi trường ảo `.venv`, cài đặt thư viện nếu thiếu và khởi động ứng dụng.
 
-1. Trong **Tổng quan**, kiểm tra đường dẫn `ldconsole.exe` hoặc chọn tệp trong thư mục LDPlayer.
-2. Chọn máy ảo và phiên bản PUBG (mặc định tự nhận diện).
-3. Bấm **MỞ PUBG MOBILE**. Chương trình mở giả lập nếu đang tắt, chờ Android khởi động, kiểm tra game đã cài rồi mở game.
+### Cách 2: Chạy thủ công qua terminal
+```powershell
+# Tạo môi trường ảo
+python -m venv .venv
 
-**Mở LDPlayer** chỉ mở và kết nối giả lập. **Hủy chờ** dừng quá trình chờ của công cụ, không đóng giả lập. Nếu chưa có PUBG, cài game trong máy ảo trước; công cụ không tự tải APK. Nếu có nhiều bản PUBG, chọn phiên bản cụ thể.
+# Kích hoạt và cài đặt dependencies
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
 
-Đường dẫn, máy ảo và phiên bản được lưu trong `settings.json` khi mở. Xem lỗi và tiến trình trong **Nhật ký**. Nếu không đọc được ứng dụng, vào LDPlayer → Settings → Other settings → ADB debugging → Open local connection, lưu và khởi động lại giả lập.
+# Khởi chạy ứng dụng
+.\.venv\Scripts\python.exe main.py
+```
 
-## Chức năng cũ
+---
 
-Tab **Tự động hóa** giữ các thao tác cũ, nhắm cửa sổ của máy ảo đã kết nối. Các tọa độ trong `pu.py` vẫn là tọa độ màn hình mẫu, chưa được hiệu chỉnh cho PUBG Mobile. Tên bạn bè chưa tham gia chọn người nhận. Auto play chỉ gửi phím ngẫu nhiên; không có nhận diện trận đấu. Việc mở game thành công không xác nhận các thao tác này hoạt động đúng.
+## 🧪 Chạy Kiểm thử (Unit Tests)
 
-Tích hợp dựa trên [tài liệu dòng lệnh chính thức của LDPlayer](https://www.ldplayer.net/blog/introduction-to-ldplayer-command-line-interface.html): `list2`, `launch`, `adb`, `runapp`.
+Dự án bao gồm bộ kiểm thử tự động đầy đủ để kiểm tra driver, ADB, cơ chế dò tìm và cấu hình:
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s tests
+```
+
+---
+
+## ⚙️ Tính năng chính
+
+1. **Tự động dò tìm LDPlayer (Multi-layered Discovery):**
+   - Tự động quét Windows Registry, tiến trình đang chạy và các ổ đĩa hệ thống để tìm file `ldconsole.exe`.
+2. **Quản lý phiên bản & kết nối an toàn:**
+   - Tự động nhận diện thiết bị qua ADB nội bộ của LDPlayer, kiểm tra độ phân giải máy ảo.
+   - Hỗ trợ tất cả các phiên bản PUBG Mobile phổ biến: VNG, Global, KR, TW, BGMI.
+3. **Động cơ tự động hóa không khóa giao diện (Non-blocking Engine):**
+   - Xử lý các tác vụ dài qua đa luồng (`threading`), đảm bảo giao diện luôn mượt mà.
+   - Cơ chế hủy bỏ an toàn (`threading.Event`).
+4. **Nhật ký thời gian thực (Enterprise Logging):**
+   - Ghi đồng thời ra file log xoay vòng tại `logs/pubg_control.log` và hiển thị trực tiếp lên tab Nhật ký.

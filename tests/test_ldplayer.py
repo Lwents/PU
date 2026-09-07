@@ -1,10 +1,16 @@
+from pathlib import Path
+import sys
+import tempfile
 import threading
 import unittest
-import tempfile
-from pathlib import Path
 from unittest.mock import Mock, patch
 
-from ldplayer import Instance, LDPlayer, find_console
+# Ensure src/ is on sys.path
+SRC_DIR = Path(__file__).resolve().parents[1] / "src"
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+from pubg_control.core import Instance, LDPlayer, find_console
 
 
 class ImmediateCancel:
@@ -20,6 +26,7 @@ class LaunchTests(unittest.TestCase):
         client = object.__new__(LDPlayer)
         client.instances = lambda: [Instance(3, "Test", 123, ready)]
         client.calls = []
+
         def command(*args, **kwargs):
             client.calls.append(args)
             if args[0] == "adb":
@@ -31,6 +38,7 @@ class LaunchTests(unittest.TestCase):
                 if "pidof" in query:
                     return "4567"
             return ""
+
         client.command = command
         return client
 
@@ -82,14 +90,19 @@ class LaunchTests(unittest.TestCase):
     def test_parse_list2(self):
         client = object.__new__(LDPlayer)
         client.command = lambda *args: "0,LDPlayer,123,456,1,100,200,1280,720,240\n2,Second,0,0,0,-1,-1\ninvalid"
-        self.assertEqual(client.instances(), [Instance(0, "LDPlayer", 123, True), Instance(2, "Second", 0, False)])
+        self.assertEqual(
+            client.instances(),
+            [Instance(0, "LDPlayer", 123, True), Instance(2, "Second", 0, False)],
+        )
 
     def test_adb_probe_targets_selected_instance(self):
         client = object.__new__(LDPlayer)
         client.command = Mock(side_effect=["PU_ADB_CONNECTED", "Physical size: 1600x900"])
         self.assertEqual(client.connect_adb(7), "Physical size: 1600x900")
-        self.assertEqual(client.command.call_args_list[0].args,
-                         ("adb", "--index", 7, "--command", "shell echo PU_ADB_CONNECTED"))
+        self.assertEqual(
+            client.command.call_args_list[0].args,
+            ("adb", "--index", 7, "--command", "shell echo PU_ADB_CONNECTED"),
+        )
 
     def test_adb_error_is_not_connected(self):
         client = object.__new__(LDPlayer)
@@ -101,14 +114,20 @@ class LaunchTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             executable = Path(folder) / "dnconsole.exe"
             executable.touch()
-            with patch("ldplayer.installation_paths", return_value=[Path(folder) / "dnplayer.exe"]), patch("ldplayer.shutil.which", return_value=None):
-                self.assertEqual(Path(find_console(str(Path(folder) / "old" / "ldconsole.exe"))), executable)
+            with patch(
+                "pubg_control.core.ldplayer.installation_paths",
+                return_value=[Path(folder) / "dnplayer.exe"],
+            ), patch("pubg_control.core.ldplayer.shutil.which", return_value=None):
+                self.assertEqual(
+                    Path(find_console(str(Path(folder) / "old" / "ldconsole.exe"))),
+                    executable,
+                )
 
     def test_valid_saved_path_has_priority(self):
         with tempfile.TemporaryDirectory() as folder:
             executable = Path(folder) / "ldconsole.exe"
             executable.touch()
-            with patch("ldplayer.installation_paths") as discover:
+            with patch("pubg_control.core.ldplayer.installation_paths") as discover:
                 self.assertEqual(Path(find_console(str(executable))), executable)
                 discover.assert_not_called()
 
