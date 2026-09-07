@@ -72,7 +72,7 @@ class PUBGControlApp:
         self.auto_play_enabled = tk.BooleanVar(value=False)
         self.auto_requeue_enabled = tk.BooleanVar(value=True)
         self.friend_name = tk.StringVar(value="")
-        self.play_style = tk.StringVar(value="aggressive")
+        self.play_style = tk.StringVar(value="treo_may_afk")
 
         # Initialize Services
         self.automation = AutomationService(

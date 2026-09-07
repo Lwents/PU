@@ -214,12 +214,13 @@ class AutomationService:
 
         # Tactical parameters per play style
         combat_profiles = {
-            "aggressive": {"shoot_chance": 0.55, "sprint_rate": 0.70, "move_duration": (1.0, 3.0), "heal_threshold": 0.65},
-            "defensive": {"shoot_chance": 0.25, "sprint_rate": 0.30, "move_duration": (0.5, 1.5), "heal_threshold": 0.80},
+            "treo_may_afk": {"shoot_chance": 0.0, "sprint_rate": 0.0, "move_duration": (0.2, 0.4), "heal_threshold": 0.70},
             "passive": {"shoot_chance": 0.10, "sprint_rate": 0.15, "move_duration": (0.3, 1.0), "heal_threshold": 0.90},
+            "defensive": {"shoot_chance": 0.25, "sprint_rate": 0.30, "move_duration": (0.5, 1.5), "heal_threshold": 0.80},
+            "aggressive": {"shoot_chance": 0.55, "sprint_rate": 0.70, "move_duration": (1.0, 3.0), "heal_threshold": 0.65},
             "random": {"shoot_chance": 0.35, "sprint_rate": 0.45, "move_duration": (0.5, 2.5), "heal_threshold": 0.75},
         }
-        profile = combat_profiles.get(play_style, combat_profiles["aggressive"])
+        profile = combat_profiles.get(play_style, combat_profiles["treo_may_afk"])
 
         while not self._stop_event.is_set():
             loop_count += 1
@@ -292,6 +293,20 @@ class AutomationService:
                     self.heals_used += 1
                     time.sleep(2.0)
                     continue
+
+            # -------------------------------------------------------------
+            # SPECIAL CASE: Treo máy AFK (Farm điểm/exp, ẩn nấp, chống kick)
+            # -------------------------------------------------------------
+            if play_style == "treo_may_afk":
+                if loop_count % 20 == 0:
+                    self._send_key("z")
+                    self.log("[Treo máy AFK] Nằm ẩn nấp trong cỏ an toàn...")
+                elif loop_count % 7 == 0:
+                    nudge_key = random.choice(["a", "d", "c"])
+                    self._send_key(nudge_key, duration=0.15)
+                    self.log("[Treo máy AFK] Nhúc nhích nhẹ chống kick AFK...")
+                time.sleep(1.5)
+                continue
 
             # Execute tactical movement
             move_key = random.choice(["w", "w", "w", "a", "d"])  # Biased towards forward

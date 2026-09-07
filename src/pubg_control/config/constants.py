@@ -35,7 +35,7 @@ PACKAGES: Dict[str, str] = {
 }
 
 # Bot Play Styles
-PLAY_STYLES = ["aggressive", "defensive", "passive", "random"]
+PLAY_STYLES = ["treo_may_afk", "passive", "defensive", "aggressive", "random"]
 
 # Default Sample In-game UI Coordinates (Reference base: 1920x1080)
 DEFAULT_COORDINATES: Dict[str, Tuple[int, int]] = {
