@@ -504,6 +504,60 @@ class PUBGControlApp:
             daemon=True,
         ).start()
 
+    def test_opencv_scan(self) -> None:
+        """Capture live screen and scan for all OpenCV templates, reporting results in real time."""
+        self.log_message("📸 Đang chụp ảnh màn hình game để nhận diện mẫu OpenCV...")
+
+        def work():
+            scene = self.lobby_automation.capture_screenshot()
+            if scene is None:
+                self.log_message("❌ Không thể chụp màn hình game từ LDPlayer.")
+                return
+
+            h, w = scene.shape[:2]
+            self.log_message(f"🖼️ Đã chụp khung hình ({w}x{h}). Bắt đầu quét nhận diện mẫu OpenCV...")
+
+            templates_to_check = [
+                ("btn_start.png", "Nút BẮT ĐẦU"),
+                ("btn_mode.png", "Thẻ chọn Chế độ"),
+                ("tab_xep_hang.png", "Tab Xếp Hạng (Ranked)"),
+                ("tab_che_do_co_dien.png", "Chế độ Cổ Điển"),
+                ("card_erangel_co_dien.png", "Bản đồ Erangel"),
+                ("close_x_pubg.png", "Nút X đóng popup"),
+                ("close_x_mode_menu.png", "Nút X đóng menu"),
+                ("btn_dong_y.png", "Nút Đồng Ý"),
+                ("btn_huy.png", "Nút Hủy"),
+                ("btn_choi_mot_tran.png", "Nút Chơi Một Trận"),
+                ("btn_ve_sanh.png", "Nút Về Sảnh"),
+                ("match_cancel_x.png", "Nút Hủy Ghép Trận"),
+            ]
+
+            found_count = 0
+            for filename, label in templates_to_check:
+                match = self.lobby_automation.vision.find_template_by_name(
+                    scene, filename, threshold=0.70, multiscale=True
+                )
+                if match:
+                    found_count += 1
+                    pct = match.score * 100
+                    self.log_message(
+                        f"  ✅ [OpenCV] {label}: Khớp {pct:.1f}% tại tọa độ ({match.cx}, {match.cy}) [Tỷ lệ: {match.scale:.2f}x]"
+                    )
+
+            # Also check yellow start button contour
+            start_result = self.lobby_automation.vision.detect_yellow_start_button(scene)
+            if start_result and not any(t[0] == "btn_start.png" for t in templates_to_check if self.lobby_automation.vision.find_template_by_name(scene, "btn_start.png")):
+                self.log_message(
+                    f"  ✅ [OpenCV] Nút BẮT ĐẦU (phân tích màu HSV): Tọa độ ({start_result.cx}, {start_result.cy})"
+                )
+
+            if found_count == 0:
+                self.log_message("ℹ️ [OpenCV] Không phát hiện thấy mẫu nút nào trên màn hình hiện tại.")
+            else:
+                self.log_message(f"🎉 Quét hoàn tất: Nhận diện thành công {found_count} thành phần giao diện!")
+
+        threading.Thread(target=work, daemon=True).start()
+
     def _poll_telemetry(self) -> None:
         """Periodic UI update for live bot metrics and current state."""
         if not self.closed and hasattr(self, "automation_view"):

@@ -64,6 +64,10 @@ class AutomationView(tk.Frame):
 
         create_button(
             lobby_btn_row, "🎯 Chọn Xếp hạng", self.app.select_ranked_only
+        ).pack(side="left", padx=(0, 8))
+
+        create_button(
+            lobby_btn_row, "🔍 Quét OpenCV", self.app.test_opencv_scan
         ).pack(side="left")
 
         # -------------------------------------------------------------

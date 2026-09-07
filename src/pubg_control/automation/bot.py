@@ -240,19 +240,18 @@ class AutomationService:
                     self.log("[State: SẢNH CHỜ] Tự động đóng tab thông báo & bấm BẮT ĐẦU ghép trận...")
                     # Dismiss popups
                     if frame is not None:
-                        x_spots = self.vision.detect_modal_close_buttons(frame)
-                        for cx, cy in x_spots[:2]:
-                            self._tap(cx, cy)
+                        close_matches = self.vision.detect_modal_close_buttons(frame)
+                        for match in close_matches[:2]:
+                            self._tap(match.cx, match.cy)
                             time.sleep(0.5)
 
                     # Click start button
                     if frame is not None:
                         btn = self.vision.detect_yellow_start_button(frame)
                         if btn:
-                            bx, by, bw, bh = btn
-                            self._tap(bx + bw // 2, by + bh // 2)
+                            self._tap(btn.cx, btn.cy)
                             self.matches_played += 1
-                            self.log(f"🚀 Đã bấm BẮT ĐẦU! (Tổng số trận đã bắt đầu: {self.matches_played})")
+                            self.log(f"🚀 [OpenCV] Đã bấm BẮT ĐẦU tại ({btn.cx}, {btn.cy})! (Tổng số trận: {self.matches_played})")
                             consecutive_lobby_checks = 0
                             time.sleep(6)
                             continue
@@ -268,13 +267,12 @@ class AutomationService:
             if state == "MATCH_RESULT":
                 self.log("[State: KẾT THÚC TRẬN] Phát hiện màn hình tổng kết trận đấu.")
                 if frame is not None:
-                    btn_coord = self.vision.detect_match_end_buttons(frame)
-                    if btn_coord:
-                        self.log(f"Tự động bấm 'Tiếp tục / Về sảnh' tại {btn_coord}...")
-                        self._tap(*btn_coord)
+                    end_btn = self.vision.detect_match_end_buttons(frame)
+                    if end_btn:
+                        cx, cy = (end_btn.cx, end_btn.cy) if isinstance(end_btn, MatchResult) else end_btn
+                        self.log(f"[OpenCV] Tự động bấm 'Tiếp tục / Về sảnh' tại ({cx}, {cy})...")
+                        self._tap(cx, cy)
                         time.sleep(2)
-                        self._tap(*btn_coord)
-                        time.sleep(3)
                         continue
                 time.sleep(2)
                 continue
